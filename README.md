@@ -1,31 +1,35 @@
 # DevOps Health Checker
 
-A production-ready health monitoring agent featuring a FastAPI web service, internal logging, and Redis persistence. This project demonstrates a multi-container architecture orchestrated with Docker Compose.
+A high-scale, distributed health monitoring system featuring a FastAPI web service, Nginx load balancing, asynchronous task processing via Celery, and real-time observability.
 
 ## 🚀 Features
 - **FastAPI Interface:** High-performance asynchronous API for health monitoring.
+- **Reverse Proxy & Load Balancing:** Nginx manages incoming traffic and scales across multiple API replicas.
+- **Asynchronous Task Queue:** Heavy processing offloaded to Celery Workers to keep the API responsive.
 - **Persistence:** Tracks success/failure metrics using a **Redis 8** backend.
+- **Real-time Monitoring:** Flower dashboard for visualizing task queues and worker health.
 - **Dynamic Probes:** Check any system path via query parameters.
-- **Observability:** Structured logging with volume mapping for host-side analysis.
 - **Orchestration:** Seamless multi-container management via Docker Compose.
 - **CI/CD:** Automated linting and container builds via GitHub Actions.
 
 ## 🏗 Architecture
-The system follows a Three-Tier architecture pattern:
-1. **Client Tier:** Consumes the API via `curl` or browser.
-2. **Application Tier:** FastAPI service running on Python 3.14-alpine.
-3. **Data Tier:** Redis 8 (Alpine) for in-memory metrics storage with named volume persistence.
+The system follows a modern **Distributed Microservices** pattern:
+1. **Entry Point:** Nginx (Port 80) acting as a Reverse Proxy.
+2. **Application Tier:** Replicated **FastAPI** services handling logic.
+3. **Task Tier: Celery Workers** processing background jobs (e.g., long-running system checks).
+4. **Broker/Data Tier: Redis** acting as both a metrics store and a message broker.
+5. **Observability Tier: Flower** (Port 5555) for monitoring background tasks.
 
 ## 🛠 Setup & Installation
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/gixorian/devops-health-check
-cd devops-health-check
+git clone https://github.com/gixorian/app-health-checker
+cd app-health-checker
 ```
 
 ### 2. Configure Environment
-To handle local file permissions correctly, copy the template and set your User/Group IDs:
+Update `.env` with your `USER_ID` and `GROUP_ID` to ensure container permissions match your host.
 ```bash
 cp .env.example .env
 ```
@@ -34,49 +38,33 @@ cp .env.example .env
 
 ### 3. Launch the Stack
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-## 📊 API Endpoints
-
-### Health Check
-Check the existence of a file path. Defaults to /app.
-- **URL:** ```GET /health?path=/etc/passwd```
-- **Success:** ```200 OK```
-- **Failure:** ```503 Service Unavailable```
-
-### Metrics Stats
-Retrieve cumulative statistics stored in Redis.
-- **URL:** ```GET /stats```
-- **Response Example:**
-  ```json
-  {
-    "total": "10",
-    "healthy": "8",
-    "unhealthy": "2"
-  }
-  ```
-
-## 🪵 Logging & Volume Mapping
-
-The application is configured to persist logs to the host machine, ensuring that log data is not lost when the container stops.
-
-- **Host Path:** `./logs/health.log`
-- **Container Path:** `/app/logs/health.log`
-- **Volume Type:** Bind Mount
-
-This allows you to monitor the application logs in real-time from your host terminal:
+### 4. Scaling the Workers (Optional)
+To handle massive background task volume, scale the worker tier horizontally:
 ```bash
-tail -f logs/health.log
+docker compose up -d --scale worker=3
 ```
+> [!NOTE]
+> Every worker will handle as many tasks as your CPU has cores concurrently.
 
-## 💾 Persistence Note
+## 📊 API & Dashboards
 
+### Endpoints
+- **Health Check:** `GET /health?path=/etc/passwd` (Immediate file probe)
+- **Stats:** `GET /stats` (Retrieve Redis metrics)
+- **Background Process:** `GET /process` (Triggers a 10s background task)
+
+### Dashboards
+- **API Traffic:** `http://localhost/` (via Nginx)
+- **Task Monitor:** `http://localhost:5555/` (Flower Dashboard)
+
+## 💾 Persistence
 This project uses a named Docker volume (```redis_data```). This means your statistics will survive a ```docker compose down```. To completely wipe the database, run:
 ```bash 
 docker compose down -v
 ```
-
 ## 🤖 CI/CD Architecture
 
 On every push to main, GitHub Actions will:
