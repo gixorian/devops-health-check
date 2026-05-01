@@ -1,74 +1,110 @@
-# DevOps Health Checker
+🛡️ Nerva Engine
+================
 
-A high-scale, distributed health monitoring system featuring a FastAPI web service, Nginx load balancing, asynchronous task processing via Celery, and real-time observability.
+**A High-Performance, Distributed Task Orchestration Framework**
 
-## 🚀 Features
-- **FastAPI Interface:** High-performance asynchronous API for health monitoring.
-- **Reverse Proxy & Load Balancing:** Nginx manages incoming traffic and scales across multiple API replicas.
-- **Asynchronous Task Queue:** Heavy processing offloaded to Celery Workers to keep the API responsive.
-- **Persistence:** Tracks success/failure metrics using a **Redis 8** backend.
-- **Real-time Monitoring:** Flower dashboard for visualizing task queues and worker health.
-- **Dynamic Probes:** Check any system path via query parameters.
-- **Orchestration:** Seamless multi-container management via Docker Compose.
-- **CI/CD:** Automated linting and container builds via GitHub Actions.
+Nerva is a lightweight, scalable "central nervous system" for distributed task execution. It decouples task triggering from execution, using a **Producer-Consumer** architecture to handle everything from simple pings to heavy computational workloads without blocking your API.
 
-## 🏗 Architecture
-The system follows a modern **Distributed Microservices** pattern:
-1. **Entry Point:** Nginx (Port 80) acting as a Reverse Proxy.
-2. **Application Tier:** Replicated **FastAPI** services handling logic.
-3. **Task Tier: Celery Workers** processing background jobs (e.g., long-running system checks).
-4. **Broker/Data Tier: Redis** acting as both a metrics store and a message broker.
-5. **Observability Tier: Flower** (Port 5555) for monitoring background tasks.
+🚀 Core Capabilities
+--------------------
 
-## 🛠 Setup & Installation
+*   **Decoupled Orchestration**: API instances handle requests while independent Workers handle the heavy lifting.
+    
+*   **Task Registry System**: Easily "plug in" new Python functions without modifying the core engine.
+    
+*   **Relational Persistence**: Full task lifecycle tracking (PENDING → WORKING → COMPLETED) in PostgreSQL.
+    
+*   **High Availability**: Nginx load balancing across multiple API replicas with a persistent Redis broker.
+    
+*   **Observability**: Real-time task monitoring via the Flower dashboard.
+    
+*   **CI/CD Ready**: Automated linting and container builds via GitHub Actions and GHCR.
+    
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/gixorian/app-health-checker
-cd app-health-checker
+🏗️ Architecture
+----------------
+
+The system follows a modern Distributed Microservices pattern:
+
+*   **Gateway**: Nginx acting as a Reverse Proxy/Load Balancer (Port 80).
+    
+*   **API Tier**: Replicated FastAPI services managing the task lifecycle.
+    
+*   **Message Broker**: Redis 8 managing the asynchronous task queue.
+    
+*   **Worker Tier**: Celery Workers executing registered logic (e.g., system checks, data processing).
+    
+*   **Database**: PostgreSQL 18 storing permanent task records and results.
+    
+*   **Observability**: Flower (Port 5555) for real-time queue metrics.
+    
+
+🛠️ Quick Start
+---------------
+
+### 1\. Clone & Configure
+
 ```
-
-### 2. Configure Environment
-Update `.env` with your `USER_ID` and `GROUP_ID` to ensure container permissions match your host.
-```bash
+git clone [https://github.com/gixorian/nerva-engine](https://github.com/gixorian/nerva-engine)
+cd nerva-engine
 cp .env.example .env
 ```
-> [!NOTE]
-> Run ```id -u``` and ```id -g``` in your terminal to find your IDs and update the ```.env``` file.
 
-### 3. Launch the Stack
-```bash
+> **Note:** Update USER\_ID and GROUP\_ID in .env (find them by running id -u and id -g) to ensure proper volume permissions.
+
+### 2\. Launch the Stack
+
+```
 docker compose up -d --build
 ```
 
-### 4. Scaling the Workers (Optional)
-To handle massive background task volume, scale the worker tier horizontally:
-```bash
+### 3\. Scaling
+
+Nerva is designed to scale. To handle higher task volumes, scale the worker tier horizontally:
+
+```
 docker compose up -d --scale worker=3
 ```
-> [!NOTE]
-> Every worker will handle as many tasks as your CPU has cores concurrently.
 
-## 📊 API & Dashboards
+📊 Interaction & Monitoring
+---------------------------
 
 ### Endpoints
-- **Health Check:** `GET /health?path=/etc/passwd` (Immediate file probe)
-- **Stats:** `GET /stats` (Retrieve Redis metrics)
-- **Background Process:** `GET /process` (Triggers a 10s background task)
+
+*   **Health Check**: GET /health (Service status)
+    
+*   **Queue Task**: POST /test-worker?seconds=10 (Triggers a registered debug task)
+    
+*   **Task Status**: GET /status/{task\_id} (Check progress and results)
+    
+*   **History**: GET /history (View recent engine activity)
+    
 
 ### Dashboards
-- **API Traffic:** `http://localhost/` (via Nginx)
-- **Task Monitor:** `http://localhost:5555/` (Flower Dashboard)
 
-## 💾 Persistence
-This project uses a named Docker volume (```redis_data```). This means your statistics will survive a ```docker compose down```. To completely wipe the database, run:
-```bash 
+*   **Interactive API Docs**: [http://localhost/docs](http://localhost/docs)
+    
+*   **Task Monitor (Flower)**: [http://localhost:5555](http://localhost:5555)
+    
+
+🔌 The Registry System
+----------------------
+
+Nerva treats logic as plugins. To add a new capability, simply define a function and register it in nerva/registry.py:
+
+```
+def my_custom_logic(payload):
+  # Your code here
+  return {"status": "success"}
+
+register_task("MY_NEW_TASK", my_custom_logic)
+```
+
+💾 Persistence & Cleanup
+------------------------
+
+Nerva uses named volumes for Redis and PostgreSQL. To wipe the engine state and start fresh:
+
+```   
 docker compose down -v
 ```
-## 🤖 CI/CD Architecture
-
-On every push to main, GitHub Actions will:
-
-1. Install dependencies from requirements.txt.
-2. Lint the code using flake8 with custom linting rules defined in ```.flake8```.
-3. Build and push a new Docker image to GHCR (GitHub Container Registry).
